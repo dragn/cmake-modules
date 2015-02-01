@@ -50,11 +50,11 @@ if(NOT SDL2_IMAGE_INCLUDE_DIR AND SDL2IMAGE_INCLUDE_DIR)
   set(SDL2_IMAGE_INCLUDE_DIR ${SDL2IMAGE_INCLUDE_DIR} CACHE PATH "directory cache
 entry initialized from old variable name")
 endif()
-find_path(SDL2_IMAGE_INCLUDE_DIR SDL2_image.h
+find_path(SDL2_IMAGE_INCLUDE_DIR SDL_image.h
   HINTS
     ENV SDL2IMAGEDIR
     ENV SDL2DIR
-  PATH_SUFFIXES include/SDL2 include/SDL212 include/SDL211 include
+  PATH_SUFFIXES include/SDL2 include
 )
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
