@@ -1,3 +1,7 @@
+#
+# This file contains general CMake utilities
+#
+
 include(CMakeParseArguments)
 
 #
@@ -9,14 +13,14 @@ if(CMAKE_COMPILER_IS_GNUCXX)
 endif()
 
 #
-# === wos_source_groups
+# === source_groups
 #
 #   Scans directory structure and creates source_groups for Visual Studio projects
 #     - GroupName: base group name, typically "Source Files" or "Header Files" or "Resources"
 #     - Directory: directory where files are located
 #     - FilePattern: file search patterns, like "*.cpp" or "*.hpp"
 #
-function(wos_source_groups GroupName Directory)
+function(source_groups GroupName Directory)
   # Glob all sources file inside directory ${Directory}
   file(GLOB_RECURSE FILES ${ARGN})
 
@@ -31,210 +35,10 @@ function(wos_source_groups GroupName Directory)
     string(REPLACE / \\ SRCGR ${SRCGR})
     source_group("${SRCGR}" FILES ${f})
   endforeach()
-endfunction(wos_source_groups)
+endfunction(source_groups)
 
 #
-# === wos_sources
-#
-#   Gather sources for current platform, using following conventions:
-#     - Files which names end with "PC" or "Windows"
-#       are only for Windows platform.
-#     - Files which path contains folder "Win" or "Windows" are only for Windows.
-#     - Files which names end with "Linux" are only for Linux.
-#     - Files which path contains folder "linux" are only for Linux.
-#
-#   Some examples:
-#     Sources/Linux/Test.cpp    - Linux only
-#     Base/TestPC.cpp           - Windows only
-#     Base/Test/TestLinux.c     - Linux only
-#     Base/Win/Test.cpp         - Windows only
-#
-#   Arguments:
-#     VAR - the variable to put the list of files into
-#
-function(wos_sources VAR)
-
-  file(GLOB_RECURSE FILES RELATIVE ${PROJECT_SOURCE_DIR} *.hpp *.cpp *.h *.c *.inl)
-
-  #
-  # === Linux sources
-  #
-  if(UNIX)
-    foreach(FILE ${FILES})
-      # Remove windows specific files
-      if(${FILE} MATCHES ".*Windows\\.[ch](pp)?" OR
-          ${FILE} MATCHES ".*PC\\.[ch](pp)?" OR
-          ${FILE} MATCHES "^(.*/)?Win/.*$" OR
-          ${FILE} MATCHES "^(.*/)?Windows/.*$" OR
-          ${FILE} MATCHES "^(.*/)?windows/.*$")
-        list(REMOVE_ITEM FILES ${FILE})
-      endif()
-    endforeach()
-  endif()
-
-  #
-  # === Windows sources
-  #
-  if(WIN32)
-    foreach(FILE ${FILES})
-      # Remove linux specific files
-      if(${FILE} MATCHES ".*Linux\\.[ch](pp)?" OR
-          ${FILE} MATCHES "^(.*/)?Linux/.*$" OR
-          ${FILE} MATCHES "^(.*/)?linux/.*$")
-        list(REMOVE_ITEM FILES ${FILE})
-      endif()
-    endforeach()
-  endif()
-
-  # Remove files from Test/ folder
-  foreach(FILE ${FILES})
-    # Remove linux specific files
-    if(${FILE} MATCHES "Test/.*")
-      list(REMOVE_ITEM FILES ${FILE})
-    endif()
-  endforeach()
-
-  # Unity sources are not used in cmake builds
-  list(REMOVE_ITEM FILES Unity.cpp)
-  list(REMOVE_ITEM FILES Sources/Unity.cpp)
-  list(REMOVE_ITEM FILES Source/Unity.cpp)
-
-  set(${VAR} ${FILES} PARENT_SCOPE)
-
-endfunction(wos_sources)
-
-#
-# === wos_setup_library
-#
-#   Typical setup for library projects that follow conventions.
-#
-#   Arguments:
-#     DEPS <dependecies>  - list of dependencies
-#     SHARED              - whether to build as shared lib (linkage by default is static)
-#     EXCLUDES <excludes> - list of source files to exclude from build
-#
-#   Usage:
-#     wos_setup_library([DEPS <dependencies> ...] [EXCLUDES <excludes> ...] [SHARED])
-#
-function(wos_setup_library)
-  set(options SHARED)
-  set(oneValueArgs PCH_HEADER PCH_SOURCE)
-  set(multiValueArgs DEPS EXCLUDES)
-  cmake_parse_arguments(wos_setup_library "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
-
-  if(NOT wos_setup_library_PCH_HEADER)
-    # Try to discover precompiled header if not set
-    if(EXISTS ${CMAKE_SOURCE_DIR}/Common/${PROJECT_NAME}/${PROJECT_NAME}PCH.hpp)
-      set(wos_setup_library_PCH_HEADER ${PROJECT_NAME}/${PROJECT_NAME}PCH.hpp)
-      set(wos_setup_library_PCH_HEADER_PATH ${CMAKE_SOURCE_DIR}/Common/${PROJECT_NAME}/${PROJECT_NAME}PCH.hpp)
-    elseif(EXISTS ${CMAKE_SOURCE_DIR}/Shared/${PROJECT_NAME}/${PROJECT_NAME}PCH.hpp)
-      set(wos_setup_library_PCH_HEADER ${PROJECT_NAME}/${PROJECT_NAME}PCH.hpp)
-      set(wos_setup_library_PCH_HEADER_PATH ${CMAKE_SOURCE_DIR}/Shared/${PROJECT_NAME}/${PROJECT_NAME}PCH.hpp)
-    elseif(EXISTS ${PROJECT_SOURCE_DIR}/Source/${PROJECT_NAME}PCH.hpp)
-      set(wos_setup_library_PCH_HEADER ${PROJECT_NAME}PCH.hpp)
-      set(wos_setup_library_PCH_HEADER_PATH ${PROJECT_SOURCE_DIR}/Source/${PROJECT_NAME}PCH.hpp)
-    elseif(EXISTS ${PROJECT_SOURCE_DIR}/Include/${PROJECT_NAME}PCH.hpp)
-      set(wos_setup_library_PCH_HEADER ${PROJECT_NAME}PCH.hpp)
-      set(wos_setup_library_PCH_HEADER_PATH ${PROJECT_SOURCE_DIR}/Include/${PROJECT_NAME}PCH.hpp)
-    elseif(EXISTS ${PROJECT_SOURCE_DIR}/stdafx.h)
-      set(wos_setup_library_PCH_HEADER stdafx.h)
-      set(wos_setup_library_PCH_HEADER_PATH ${PROJECT_SOURCE_DIR}/stdafx.h)
-    elseif(EXISTS ${PROJECT_SOURCE_DIR}/Source/stdafx.h)
-      set(wos_setup_library_PCH_HEADER stdafx.h)
-      set(wos_setup_library_PCH_HEADER_PATH ${PROJECT_SOURCE_DIR}/Source/stdafx.h)
-    endif()
-  else()
-    # Trying to find a header file location
-    if(EXISTS ${CMAKE_SOURCE_DIR}/Common/${wos_setup_library_PCH_HEADER})
-      set(wos_setup_library_PCH_HEADER_PATH ${CMAKE_SOURCE_DIR}/Common/${wos_setup_library_PCH_HEADER})
-    elseif(EXISTS ${CMAKE_SOURCE_DIR}/Shared/${wos_setup_library_PCH_HEADER})
-      set(wos_setup_library_PCH_HEADER_PATH ${CMAKE_SOURCE_DIR}/Shared/${wos_setup_library_PCH_HEADER})
-    elseif(EXISTS ${PROJECT_SOURCE_DIR}/${wos_setup_library_PCH_HEADER})
-      set(wos_setup_library_PCH_HEADER_PATH ${PROJECT_SOURCE_DIR}/${wos_setup_library_PCH_HEADER})
-    elseif(EXISTS ${PROJECT_SOURCE_DIR}/Source/${wos_setup_library_PCH_HEADER})
-      set(wos_setup_library_PCH_HEADER_PATH ${PROJECT_SOURCE_DIR}/Source/${wos_setup_library_PCH_HEADER})
-    elseif(EXISTS ${PROJECT_SOURCE_DIR}/Include/${wos_setup_library_PCH_HEADER})
-      set(wos_setup_library_PCH_HEADER_PATH ${PROJECT_SOURCE_DIR}/Include/${wos_setup_library_PCH_HEADER})
-    endif()
-  endif()
-
-  # Try to discover precompiled source if not set
-  if(NOT wos_setup_library_PCH_SOURCE)
-    if(EXISTS ${CMAKE_SOURCE_DIR}/Common/${PROJECT_NAME}/${PROJECT_NAME}PCH.cpp)
-      set(wos_setup_library_PCH_SOURCE ${PROJECT_NAME}/${PROJECT_NAME}PCH.cpp)
-    elseif(EXISTS ${CMAKE_SOURCE_DIR}/Shared/${PROJECT_NAME}/${PROJECT_NAME}PCH.cpp)
-      set(wos_setup_library_PCH_SOURCE ${PROJECT_NAME}/${PROJECT_NAME}PCH.cpp)
-    elseif(EXISTS ${PROJECT_SOURCE_DIR}/Source/${PROJECT_NAME}PCH.cpp)
-      set(wos_setup_library_PCH_SOURCE Source/${PROJECT_NAME}PCH.cpp)
-    elseif(EXISTS ${PROJECT_SOURCE_DIR}/stdafx.cpp)
-      set(wos_setup_library_PCH_SOURCE stdafx.cpp)
-    elseif(EXISTS ${PROJECT_SOURCE_DIR}/Source/stdafx.cpp)
-      set(wos_setup_library_PCH_SOURCE Source/stdafx.cpp)
-    endif()
-  endif()
-
-  if(EXISTS ${PROJECT_SOURCE_DIR}/Inc)
-    include_directories(Inc)
-  endif()
-  if(EXISTS ${PROJECT_SOURCE_DIR}/Include)
-    include_directories(Include)
-  endif()
-  if(EXISTS ${PROJECT_SOURCE_DIR}/Source)
-    include_directories(Source)
-  endif()
-
-  include_directories(.)
-
-  wos_sources(SOURCES)
-  wos_headers(SOURCES)
-
-  message(STATUS "Setting up library: ${PROJECT_NAME}")
-
-  foreach(FILE ${wos_setup_library_EXCLUDES})
-    message(STATUS "  Excluding: ${FILE}")
-    list(REMOVE_ITEM SOURCES ${FILE})
-  endforeach()
-
-  wos_source_groups("Source Files" Source Source/*.c Source/*.cpp Source/*.h Source/*.hpp Source/*.inl)
-  wos_source_groups("Source Files" . *.c *.cpp *.inl)
-  wos_source_groups("Source Files" . Inc/*.h Inc/*.hpp)
-  wos_source_groups("Resources" Resource Resource/*.h Resource/*.rc)
-
-  if(wos_setup_library_SHARED)
-    add_library(${PROJECT_NAME} SHARED ${SOURCES})
-
-    if(WOS_DEFBUILD)
-      if(EXISTS ${PROJECT_SOURCE_DIR}/wsp10/DefBuildIgnores.txt)
-        file(COPY ${PROJECT_SOURCE_DIR}/wsp10/DefBuildIgnores.txt
-          DESTINATION ${PROJECT_BINARY_DIR})
-      endif()
-      add_custom_command(TARGET ${PROJECT_NAME}
-        PRE_LINK
-        COMMAND ${WOS_DEFBUILD} ${PROJECT_NAME}.def
-        WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
-        )
-      set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "${LINK_FLAGS} /DEF:${PROJECT_NAME}.def")
-    endif()
-  else()
-    add_library(${PROJECT_NAME} STATIC ${SOURCES})
-  endif()
-
-  if(wos_setup_library_PCH_HEADER AND wos_setup_library_PCH_SOURCE)
-    wos_setup_pch(SOURCES ${wos_setup_library_PCH_HEADER} ${wos_setup_library_PCH_SOURCE}
-      ${wos_setup_library_PCH_HEADER_PATH})
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" PARENT_SCOPE)
-  endif()
-
-  if(wos_setup_library_DEPS)
-    message(STATUS "  Adding dependencies: ${wos_setup_library_DEPS}")
-    set(WOS_DEPS_${PROJECT_NAME} "${wos_setup_library_DEPS}" CACHE STRING "${PROJECT_NAME} library deps")
-  endif()
-
-  target_link_libraries(${PROJECT_NAME} ${wos_setup_library_DEPS})
-endfunction()
-
-#
-# === wos_target_setup_pch
+# === target_setup_pch
 #
 #   Setup precompiled headers for supported environments.
 #
@@ -245,7 +49,7 @@ endfunction()
 #     PCH_SOURCE      - the source for precompiled header (for MSVC only)
 #     PCH_HEADER_PATH - full path to the header
 #
-function(wos_target_setup_pch TARGET SOURCES_VAR PCH_HEADER PCH_SOURCE PCH_HEADER_PATH)
+function(target_setup_pch TARGET SOURCES_VAR PCH_HEADER PCH_SOURCE PCH_HEADER_PATH)
   message(STATUS "  Setting up PCH: ${PCH_HEADER} ${PCH_SOURCE}")
 
   # MSVC precompiled headers
@@ -306,26 +110,17 @@ function(wos_target_setup_pch TARGET SOURCES_VAR PCH_HEADER PCH_SOURCE PCH_HEADE
     add_custom_target(${TARGET}_pch DEPENDS ${PCH_BINARY})
     add_dependencies(${TARGET} ${TARGET}_pch)
   endif()
-endfunction(wos_target_setup_pch)
+endfunction(target_setup_pch)
 
 #
-# === wos_setup_pch
+# === setup_pch
 #
 #   Setup precompiled headers for current target.
-#   See wos_target_setup_pch for explanations.
+#   See target_setup_pch for explanations.
 #
-function(wos_setup_pch SOURCES_VAR PCH_HEADER PCH_SOURCE PCH_HEADER_PATH)
-  wos_target_setup_pch(${PROJECT_NAME} ${SOURCES_VAR} ${PCH_HEADER} ${PCH_SOURCE} ${PCH_HEADER_PATH})
+function(setup_pch SOURCES_VAR PCH_HEADER PCH_SOURCE PCH_HEADER_PATH)
+  target_setup_pch(${PROJECT_NAME} ${SOURCES_VAR} ${PCH_HEADER} ${PCH_SOURCE} ${PCH_HEADER_PATH})
 endfunction()
-
-#
-# === wos_headers
-#
-function(wos_headers VAR)
-  file(GLOB_RECURSE FILES *.h *.hpp)
-  list(APPEND ${VAR} ${FILES})
-  set(${VAR} ${${VAR}} PARENT_SCOPE)
-endfunction(wos_headers)
 
 #
 # === add_config_definitions
