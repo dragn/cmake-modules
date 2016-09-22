@@ -10,6 +10,18 @@ include(CMakeParseArguments)
 if(CMAKE_COMPILER_IS_GNUCXX)
   execute_process(COMMAND ${CMAKE_C_COMPILER} -dumpversion
       OUTPUT_VARIABLE GCC_VERSION)
+  add_definitions(-DCMAKE_COMPILER_GCC)
+elseif(MSVC)
+  add_definitions(-DCMAKE_COMPILER_MSVC)
+endif()
+
+#
+# Set platform-specific definitions
+#
+if(WIN32)
+  add_definitions(-DCMAKE_PLATFORM_WINDOWS)
+elseif(UNIX)
+  add_definitions(-DCMAKE_PLATFORM_UNIX)
 endif()
 
 #
